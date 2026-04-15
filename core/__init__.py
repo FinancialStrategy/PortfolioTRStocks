@@ -1,4 +1,6 @@
 # core/__init__.py
 """
-Core package for BIST Quant Terminal.
+Core analytics package for the BIST Quant Terminal.
+Contains portfolio construction, risk analytics,
+Monte Carlo simulation, and optimization engines.
 """
