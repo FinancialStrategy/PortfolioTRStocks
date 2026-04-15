@@ -6,43 +6,30 @@ import streamlit as st
 
 
 def apply_theme():
-    """
-    Institutional minimalist theme for the BIST Quant Terminal.
-
-    Design principles:
-    - serious and professional
-    - low-saturation palette
-    - compact KPI layout
-    - clean spacing
-    - restrained visual hierarchy
-    - no overly bright / playful colors
-    """
-
     st.markdown(
         """
         <style>
         :root {
-            --bg-main: #0f1722;
-            --bg-surface: #151f2d;
-            --bg-surface-2: #1a2535;
-            --bg-soft: #202c3f;
+            --bg-main: #f5f7fa;
+            --bg-surface: #ffffff;
+            --bg-surface-2: #f8fafc;
 
-            --border-soft: rgba(255,255,255,0.06);
-            --border-mid: rgba(255,255,255,0.10);
+            --border-soft: rgba(15, 23, 42, 0.08);
+            --border-mid: rgba(15, 23, 42, 0.14);
 
-            --text-main: #e8edf5;
-            --text-soft: #a8b4c4;
-            --text-muted: #7f8b9c;
+            --text-main: #0f172a;
+            --text-soft: #475569;
+            --text-muted: #64748b;
 
-            --accent: #7f9bb8;
-            --accent-strong: #93aeca;
+            --accent: #3b556e;
+            --accent-soft: #6b8197;
 
-            --success: #6f8f7b;
-            --warning: #b89a68;
-            --danger: #b27a7a;
+            --success: #4f6f5d;
+            --warning: #8a6b3f;
+            --danger: #8b5e5e;
 
-            --shadow-soft: 0 6px 16px rgba(0,0,0,0.18);
-            --shadow-mid: 0 10px 24px rgba(0,0,0,0.22);
+            --shadow-soft: 0 4px 14px rgba(15, 23, 42, 0.05);
+            --shadow-mid: 0 10px 22px rgba(15, 23, 42, 0.06);
 
             --radius-lg: 16px;
             --radius-md: 12px;
@@ -54,18 +41,17 @@ def apply_theme():
         }
 
         .stApp {
-            background: linear-gradient(180deg, #0e1520 0%, #111a27 100%);
+            background: linear-gradient(180deg, #f7f9fc 0%, #f3f6fa 100%);
             color: var(--text-main);
         }
 
         section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #121b28 0%, #162130 100%);
+            background: linear-gradient(180deg, #eef2f7 0%, #e9eef5 100%);
             border-right: 1px solid var(--border-soft);
         }
 
-        /* Main hero */
         .hero-box {
-            background: linear-gradient(180deg, #162131 0%, #1a2636 100%);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
             border: 1px solid var(--border-mid);
             border-radius: var(--radius-lg);
             padding: 18px 20px 16px 20px;
@@ -74,7 +60,7 @@ def apply_theme():
         }
 
         .main-title {
-            font-size: 1.72rem;
+            font-size: 1.68rem;
             font-weight: 750;
             color: var(--text-main);
             line-height: 1.2;
@@ -99,14 +85,13 @@ def apply_theme():
         }
 
         .small-note {
-            font-size: 0.78rem;
+            font-size: 0.79rem;
             color: var(--text-muted);
             line-height: 1.45;
         }
 
-        /* Compact institutional KPI shell */
         .kpi-shell {
-            background: linear-gradient(180deg, #182334 0%, #1b2738 100%);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
             border: 1px solid var(--border-soft);
             border-radius: var(--radius-md);
             padding: 10px 12px;
@@ -138,7 +123,7 @@ def apply_theme():
         }
 
         .panel-shell {
-            background: linear-gradient(180deg, #161f2d 0%, #1a2434 100%);
+            background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
             border: 1px solid var(--border-soft);
             border-radius: var(--radius-md);
             padding: 12px 14px;
@@ -146,26 +131,11 @@ def apply_theme():
             box-shadow: var(--shadow-soft);
         }
 
-        .badge-pill {
-            display: inline-block;
-            background: rgba(127, 155, 184, 0.12);
-            color: #d7e1ee;
-            border: 1px solid rgba(147, 174, 202, 0.18);
-            border-radius: 999px;
-            padding: 0.20rem 0.58rem;
-            font-size: 0.70rem;
-            font-weight: 650;
-            margin-right: 6px;
-            margin-bottom: 6px;
-        }
-
-        /* Streamlit metric widgets toned down */
         div[data-testid="stMetric"] {
-            background: linear-gradient(180deg, #172130 0%, #1a2535 100%);
+            background: #ffffff;
             border: 1px solid var(--border-soft);
             border-radius: var(--radius-md);
             padding: 8px 10px;
-            box-shadow: none;
         }
 
         div[data-testid="stMetricLabel"] {
@@ -182,11 +152,6 @@ def apply_theme():
             color: var(--text-main) !important;
         }
 
-        div[data-testid="stMetricDelta"] {
-            font-size: 0.72rem !important;
-        }
-
-        /* Tabs */
         button[data-baseweb="tab"] {
             background: transparent !important;
             color: var(--text-soft) !important;
@@ -198,31 +163,12 @@ def apply_theme():
 
         button[data-baseweb="tab"][aria-selected="true"] {
             color: var(--text-main) !important;
-            background: rgba(255,255,255,0.03) !important;
+            background: rgba(15, 23, 42, 0.03) !important;
             border-bottom: 2px solid var(--accent) !important;
         }
 
-        /* Inputs */
-        .stSelectbox > div > div,
-        .stMultiSelect > div > div,
-        .stNumberInput > div > div,
-        .stDateInput > div > div {
-            background-color: #182232 !important;
-            border: 1px solid var(--border-soft) !important;
-            border-radius: 10px !important;
-            color: var(--text-main) !important;
-        }
-
-        /* Dataframe container */
-        div[data-testid="stDataFrame"] {
-            border: 1px solid var(--border-soft);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        /* Buttons */
         .stButton > button {
-            background: linear-gradient(180deg, #223145 0%, #1c293a 100%);
+            background: linear-gradient(180deg, #eef2f7 0%, #e8edf3 100%);
             color: var(--text-main);
             border: 1px solid var(--border-mid);
             border-radius: 10px;
@@ -232,43 +178,40 @@ def apply_theme():
         }
 
         .stButton > button:hover {
-            border-color: rgba(147, 174, 202, 0.28);
-            color: #ffffff;
+            border-color: rgba(59, 85, 110, 0.28);
+            color: #0f172a;
         }
 
-        /* Alerts toned down */
-        div[data-baseweb="notification"] {
-            border-radius: 12px !important;
-            border: 1px solid var(--border-soft) !important;
+        div[data-testid="stDataFrame"] {
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
         }
 
-        /* Reduce visual clutter around block containers */
         div.block-container {
             padding-top: 1.2rem;
             padding-bottom: 1.4rem;
             max-width: 1500px;
         }
 
-        /* Headings */
         h1, h2, h3, h4, h5, h6 {
             color: var(--text-main);
             letter-spacing: 0.01em;
         }
 
-        /* Horizontal rule feel */
         .soft-divider {
             border: none;
             height: 1px;
             background: linear-gradient(
                 to right,
                 transparent,
-                rgba(255,255,255,0.10),
+                rgba(15, 23, 42, 0.10),
                 transparent
             );
             margin: 8px 0 12px 0;
         }
 
-        /* Hide noisy default menu elements less aggressively if needed */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
@@ -279,9 +222,6 @@ def apply_theme():
 
 
 def render_hero(title: str, subtitle: str):
-    """
-    Optional reusable hero renderer.
-    """
     st.markdown(
         f"""
         <div class="hero-box">
@@ -294,31 +234,12 @@ def render_hero(title: str, subtitle: str):
 
 
 def render_kpi_card(label: str, value: str, foot: str = ""):
-    """
-    Optional compact KPI renderer.
-    """
     st.markdown(
         f"""
         <div class="kpi-shell">
             <div class="kpi-label">{label}</div>
             <div class="kpi-value">{value}</div>
             <div class="kpi-foot">{foot}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_panel_title(title: str, note: str | None = None):
-    """
-    Optional section title block.
-    """
-    note_html = f'<div class="small-note">{note}</div>' if note else ""
-    st.markdown(
-        f"""
-        <div class="panel-shell">
-            <div class="section-title">{title}</div>
-            {note_html}
         </div>
         """,
         unsafe_allow_html=True,
