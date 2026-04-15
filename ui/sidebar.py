@@ -21,18 +21,20 @@ def render_sidebar(
             "Investment Universe",
             options=list(universes.keys()),
             index=0,
+            key="sb_universe_name",
         )
 
         benchmark_ticker = st.text_input(
             "Benchmark",
             value=default_benchmark,
+            key="sb_benchmark_ticker",
         )
 
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=5 * 365)
 
-        start_date = st.date_input("Start Date", value=start_date, max_value=end_date)
-        end_date = st.date_input("End Date", value=end_date, max_value=end_date)
+        start_date = st.date_input("Start Date", value=start_date, max_value=end_date, key="sb_start_date")
+        end_date = st.date_input("End Date", value=end_date, max_value=end_date, key="sb_end_date")
 
         st.markdown("---")
         st.markdown("### Portfolio Construction")
@@ -48,16 +50,22 @@ def render_sidebar(
                 "Custom Weights",
             ],
             index=1,
+            key="sb_allocation_method",
         )
 
-        use_black_litterman = st.toggle("Enable Black-Litterman", value=False)
+        use_black_litterman = st.toggle(
+            "Enable Black-Litterman",
+            value=False,
+            key="sb_use_black_litterman",
+        )
 
         custom_weights = None
         if allocation_method == "Custom Weights":
             tickers = list(universes[universe_name].keys())
-            st.caption("Weights must sum approximately to 100%.")
+            st.caption("Weights should sum approximately to 100%.")
             custom_weights = []
             total = 0.0
+
             for t in tickers:
                 w = st.number_input(
                     f"{t} Weight (%)",
@@ -65,7 +73,7 @@ def render_sidebar(
                     max_value=100.0,
                     value=round(100.0 / len(tickers), 2),
                     step=1.0,
-                    key=f"custom_{t}",
+                    key=f"sb_custom_weight_{t}",
                 )
                 custom_weights.append(w / 100.0)
                 total += w
@@ -80,9 +88,14 @@ def render_sidebar(
             "Covariance Method",
             options=["Sample", "Ledoit-Wolf"],
             index=1,
+            key="sb_cov_method",
         )
 
-        use_log_returns = st.toggle("Use Log Returns", value=False)
+        use_log_returns = st.toggle(
+            "Use Log Returns",
+            value=False,
+            key="sb_use_log_returns",
+        )
 
         risk_free_rate = st.number_input(
             "Risk-Free Rate (decimal)",
@@ -90,6 +103,7 @@ def render_sidebar(
             max_value=1.0,
             value=float(default_risk_free_rate),
             step=0.01,
+            key="sb_risk_free_rate",
         )
 
         st.markdown("---")
@@ -101,6 +115,7 @@ def render_sidebar(
             max_value=50000,
             value=default_num_simulations,
             step=1000,
+            key="sb_num_simulations",
         )
 
         forecast_days = st.slider(
@@ -109,6 +124,7 @@ def render_sidebar(
             max_value=756,
             value=default_forecast_days,
             step=21,
+            key="sb_forecast_days",
         )
 
         initial_investment = st.number_input(
@@ -116,10 +132,16 @@ def render_sidebar(
             min_value=10000,
             value=1000000,
             step=10000,
+            key="sb_initial_investment",
         )
 
         st.markdown("---")
-        run_button = st.button("Run Terminal", type="primary", use_container_width=True)
+        run_button = st.button(
+            "Run Terminal",
+            type="primary",
+            use_container_width=True,
+            key="sb_run_terminal",
+        )
 
     return {
         "universe_name": universe_name,
