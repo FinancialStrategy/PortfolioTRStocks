@@ -85,7 +85,7 @@ st.set_page_config(
 
 
 # =========================================================
-# Helpers
+# Helper Functions
 # =========================================================
 def normalize_weights(weights: np.ndarray) -> np.ndarray:
     weights = np.asarray(weights, dtype=float)
@@ -126,29 +126,32 @@ def get_weights_from_method(
 
     if allocation_method == "Tracking Error Optimization":
         if benchmark_series is None or benchmark_series.empty:
-            st.warning("Benchmark data unavailable. Falling back to equal weights.")
+            st.warning("Benchmark data is unavailable. Falling back to equal weights.")
             return np.repeat(1.0 / n, n)
 
         try:
             return normalize_weights(optimizer.optimize_tracking_error(benchmark_series))
-        except Exception as e:
+        except Exception as exc:
             st.warning(
-                f"Tracking error optimization failed. Falling back to equal weights. Details: {e}"
+                f"Tracking error optimization failed. Falling back to equal weights. Details: {exc}"
             )
             return np.repeat(1.0 / n, n)
 
     if allocation_method == "Custom Weights":
         if custom_weights is None:
-            st.warning("Custom weights unavailable. Falling back to equal weights.")
+            st.warning("Custom weights are unavailable. Falling back to equal weights.")
             return np.repeat(1.0 / n, n)
 
         w = np.array(custom_weights, dtype=float)
         if len(w) != n:
-            st.warning("Custom weights length mismatch. Falling back to equal weights.")
+            st.warning(
+                "Custom weights length does not match the valid ticker count. Falling back to equal weights."
+            )
             return np.repeat(1.0 / n, n)
 
         return normalize_weights(w)
 
+    st.warning("Unknown allocation method. Falling back to equal weights.")
     return np.repeat(1.0 / n, n)
 
 
@@ -160,13 +163,14 @@ def build_black_litterman_view(
         return None
 
     st.markdown("### Black-Litterman Views")
-    st.caption("Absolute and relative tactical views with confidence weighting.")
+    st.caption("Define absolute and relative tactical views with confidence weighting.")
 
     num_views = st.slider(
         "Number of Views",
         min_value=1,
         max_value=min(5, len(selected_tickers)),
         value=1,
+        key="bl_num_views",
     )
 
     market_weights = np.repeat(1.0 / len(selected_tickers), len(selected_tickers))
@@ -178,8 +182,8 @@ def build_black_litterman_view(
         tau=0.05,
     )
 
-    P_rows = []
-    Q_values = []
+    p_rows = []
+    q_values = []
     confidences = []
 
     for i in range(num_views):
@@ -187,50 +191,49 @@ def build_black_litterman_view(
 
         with col1:
             asset_a = st.selectbox(
-                f"Primary Asset {i+1}",
+                f"Primary Asset {i + 1}",
                 selected_tickers,
                 key=f"bl_asset_a_{i}",
             )
 
         with col2:
             asset_b = st.selectbox(
-                f"Relative Asset {i+1}",
+                f"Relative Asset {i + 1}",
                 ["None"] + selected_tickers,
                 key=f"bl_asset_b_{i}",
             )
 
         with col3:
             expected_return = st.slider(
-                f"Expected View Return {i+1} (%)",
+                f"Expected View Return {i + 1} (%)",
                 min_value=-20.0,
                 max_value=20.0,
                 value=3.0,
                 step=0.5,
-                key=f"bl_return_{i}",
+                key=f"bl_expected_return_{i}",
             )
 
-        conf = st.slider(
-            f"Confidence {i+1}",
+        confidence = st.slider(
+            f"Confidence {i + 1}",
             min_value=0.05,
             max_value=0.95,
             value=0.60,
             step=0.05,
-            key=f"bl_conf_{i}",
+            key=f"bl_confidence_{i}",
         )
 
         row = np.zeros(len(selected_tickers))
         row[selected_tickers.index(asset_a)] = 1.0
-
         if asset_b != "None":
             row[selected_tickers.index(asset_b)] = -1.0
 
-        P_rows.append(row)
-        Q_values.append(expected_return / 100.0)
-        confidences.append(conf)
+        p_rows.append(row)
+        q_values.append(expected_return / 100.0)
+        confidences.append(confidence)
 
     posterior = model.posterior(
-        np.array(P_rows, dtype=float),
-        np.array(Q_values, dtype=float),
+        np.array(p_rows, dtype=float),
+        np.array(q_values, dtype=float),
         np.array(confidences, dtype=float),
     )
 
@@ -246,14 +249,41 @@ def build_black_litterman_view(
     return posterior
 
 
-def extract_metric_value(risk_df: pd.DataFrame, metric_name: str, multiplier: float = 1.0, suffix: str = "") -> str:
+def extract_metric_value(
+    risk_df: pd.DataFrame,
+    metric_name: str,
+    multiplier: float = 1.0,
+    suffix: str = "",
+) -> str:
     try:
-        val = risk_df.loc[risk_df["Metric"] == metric_name, "Value"].iloc[0]
-        if pd.isna(val):
+        value = risk_df.loc[risk_df["Metric"] == metric_name, "Value"].iloc[0]
+        if pd.isna(value):
             return "N/A"
-        return f"{val * multiplier:.2f}{suffix}" if suffix else f"{val:.3f}"
+        if suffix:
+            return f"{value * multiplier:.2f}{suffix}"
+        return f"{value:.3f}"
     except Exception:
         return "N/A"
+
+
+def build_universe_snapshot(
+    valid_tickers: list[str],
+    current_prices: pd.Series,
+    universe_map: dict,
+) -> pd.DataFrame:
+    rows = []
+    for ticker in valid_tickers:
+        meta = universe_map.get(ticker, {})
+        rows.append(
+            {
+                "Ticker": ticker,
+                "Name": meta.get("name", ticker),
+                "Category": meta.get("category", "Unknown"),
+                "Segment": meta.get("segment", "Unknown"),
+                "Current Price": current_prices[ticker] if ticker in current_prices.index else np.nan,
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 # =========================================================
@@ -276,7 +306,7 @@ def main():
     )
 
     if not state["run_button"]:
-        st.info("Universe ve analiz ayarlarını soldan seçip Run Terminal butonuna bas.")
+        st.info("Select the universe and analytics settings from the sidebar, then click Run Terminal.")
         return
 
     selected_universe_name = state["universe_name"]
@@ -286,7 +316,7 @@ def main():
     # -----------------------------------------------------
     # Market Data
     # -----------------------------------------------------
-    with st.spinner("BIST verileri indiriliyor ve temizleniyor..."):
+    with st.spinner("Downloading and cleaning Yahoo Finance market data..."):
         loader = DataLoader(
             tickers=requested_tickers,
             benchmark_ticker=state["benchmark_ticker"],
@@ -305,15 +335,18 @@ def main():
     valid_tickers = market["valid_tickers"]
 
     if returns.empty or len(valid_tickers) == 0:
-        st.error("Temizleme sonrası kullanılabilir getiri serisi kalmadı.")
+        st.error("No usable return history remains after cleaning.")
         st.stop()
 
-    removed = [t for t in requested_tickers if t not in valid_tickers]
-    if removed:
-        st.warning("Yetersiz coverage nedeniyle çıkarılan hisseler: " + ", ".join(removed))
+    removed_tickers = [ticker for ticker in requested_tickers if ticker not in valid_tickers]
+    if removed_tickers:
+        st.warning(
+            "The following tickers were removed due to insufficient coverage or alignment: "
+            + ", ".join(removed_tickers)
+        )
 
     # -----------------------------------------------------
-    # Optimizer
+    # Portfolio Optimizer
     # -----------------------------------------------------
     optimizer = PortfolioOptimizer(
         returns=returns,
@@ -345,6 +378,7 @@ def main():
     # Portfolio Objects
     # -----------------------------------------------------
     allocation_df = allocation_table(valid_tickers, weights, universe_map)
+    universe_snapshot_df = build_universe_snapshot(valid_tickers, current_prices, universe_map)
 
     portfolio_returns = returns @ weights
     portfolio_returns.name = "Portfolio"
@@ -463,11 +497,11 @@ def main():
                 f"{te * 100:.2f}%" if pd.notna(te) else "N/A",
                 f"Relative to {state['benchmark_ticker']}",
             ),
-            "Info Ratio": (
+            "Information Ratio": (
                 f"{ir:.3f}" if pd.notna(ir) else "N/A",
                 "Active return efficiency",
             ),
-            "Expected Terminal": (
+            "Expected Terminal Value": (
                 f"{sim_results['expected_value']:,.0f} TRY",
                 "Monte Carlo expected terminal wealth",
             ),
@@ -494,26 +528,39 @@ def main():
     with tabs[0]:
         render_section_header(
             "Executive Summary",
-            "Allocation, risk, cumulative performance and benchmark-relative overview.",
+            "Allocation, risk, cumulative performance, and benchmark-relative overview.",
         )
 
-        c1, c2 = st.columns(2)
-        with c1:
-            st.plotly_chart(plot_allocation_bar(allocation_df), use_container_width=True)
-        with c2:
-            st.plotly_chart(plot_category_bar(allocation_df), use_container_width=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.plotly_chart(
+                plot_allocation_bar(allocation_df),
+                use_container_width=True,
+                key="chart_exec_allocation_bar",
+            )
+        with col2:
+            st.plotly_chart(
+                plot_category_bar(allocation_df),
+                use_container_width=True,
+                key="chart_exec_category_bar",
+            )
 
-        c3, c4 = st.columns(2)
-        with c3:
+        col3, col4 = st.columns(2)
+        with col3:
             st.plotly_chart(
                 plot_cumulative_vs_benchmark(portfolio_returns, benchmark_series),
                 use_container_width=True,
+                key="chart_exec_cumulative_vs_benchmark",
             )
-        with c4:
+        with col4:
             st.plotly_chart(
                 plot_active_return_panel(portfolio_returns, benchmark_series),
                 use_container_width=True,
+                key="chart_exec_active_return",
             )
+
+        st.markdown("### Universe Snapshot")
+        st.dataframe(universe_snapshot_df, use_container_width=True, hide_index=True)
 
         st.markdown("### Allocation Table")
         st.dataframe(allocation_df, use_container_width=True, hide_index=True)
@@ -525,11 +572,17 @@ def main():
             st.markdown("### Relative Tail Risk")
             st.dataframe(rel_tail_df, use_container_width=True, hide_index=True)
 
+        if not frontier_df.empty:
+            st.markdown("### Random Efficient Frontier Sample")
+            frontier_preview = frontier_df[["return", "volatility", "sharpe"]].copy()
+            st.dataframe(frontier_preview.head(25), use_container_width=True, hide_index=True)
+
         if not relative_frontier_df.empty:
             st.markdown("### Benchmark-Relative Efficient Frontier")
             st.plotly_chart(
                 plot_benchmark_relative_frontier(relative_frontier_df),
                 use_container_width=True,
+                key="chart_exec_relative_frontier",
             )
 
     # =====================================================
@@ -541,7 +594,11 @@ def main():
             "RSI, MACD, Bollinger Bands, trend structure, and cross-sectional signal map.",
         )
 
-        ta_ticker = st.selectbox("Select Ticker", valid_tickers, key="ta_ticker_select")
+        ta_ticker = st.selectbox(
+            "Select Ticker",
+            valid_tickers,
+            key="ta_selected_ticker",
+        )
 
         ta_raw = ohlcv_map[ta_ticker].copy()
         ta_df = enrich_technical_indicators(ta_raw)
@@ -552,22 +609,35 @@ def main():
             {
                 "Signal": (str(ta_last["signal_label"]), "Composite technical label"),
                 "RSI": (f"{ta_last['rsi']:.2f}", "Relative Strength Index"),
-                "MACD Hist": (f"{ta_last['macd_hist']:.4f}", "MACD histogram"),
+                "MACD Histogram": (f"{ta_last['macd_hist']:.4f}", "Momentum histogram"),
                 "ATR": (f"{ta_last['atr']:.4f}", "Average true range"),
-                "Momentum 20D": (f"{ta_last['momentum_20'] * 100:.2f}%", "20-day momentum"),
+                "20D Momentum": (f"{ta_last['momentum_20'] * 100:.2f}%", "20-day momentum"),
                 "ROC 12": (f"{ta_last['roc_12']:.2f}", "Rate of change"),
             }
         )
 
-        st.plotly_chart(plot_price_with_ta(ta_df, ta_ticker), use_container_width=True)
-        st.plotly_chart(plot_rsi_macd_panel(ta_df, ta_ticker), use_container_width=True)
+        st.plotly_chart(
+            plot_price_with_ta(ta_df, ta_ticker),
+            use_container_width=True,
+            key=f"chart_ta_price_{ta_ticker}",
+        )
+
+        st.plotly_chart(
+            plot_rsi_macd_panel(ta_df, ta_ticker),
+            use_container_width=True,
+            key=f"chart_ta_rsi_macd_{ta_ticker}",
+        )
 
         signal_heatmap_df = build_strategy_dashboard(ohlcv_map, valid_tickers)
 
         st.markdown("### Cross-Sectional Signal Dashboard")
         st.dataframe(signal_heatmap_df, use_container_width=True, hide_index=True)
 
-        st.plotly_chart(plot_signal_heatmap(signal_heatmap_df), use_container_width=True)
+        st.plotly_chart(
+            plot_signal_heatmap(signal_heatmap_df),
+            use_container_width=True,
+            key="chart_ta_signal_heatmap",
+        )
 
     # =====================================================
     # Tab 3: Strategy Lab
@@ -617,22 +687,24 @@ def main():
             "Distribution, path analysis, benchmark outperformance probabilities, and terminal percentiles.",
         )
 
-        c1, c2 = st.columns(2)
-        with c1:
+        col1, col2 = st.columns(2)
+        with col1:
             st.plotly_chart(
                 plot_monte_carlo_paths(
                     sim_results["portfolio_values"],
                     state["initial_investment"],
                 ),
                 use_container_width=True,
+                key="chart_mc_paths",
             )
-        with c2:
+        with col2:
             st.plotly_chart(
                 plot_terminal_distribution(
                     sim_results["final_values"],
                     state["initial_investment"],
                 ),
                 use_container_width=True,
+                key="chart_mc_terminal_distribution",
             )
 
         st.markdown("### Benchmark Outperformance Probabilities")
@@ -650,25 +722,27 @@ def main():
             "Tracking error, alpha/beta, rolling active tail risk, and regime analysis.",
         )
 
-        k1, k2, k3, k4 = st.columns(4)
-        with k1:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
             st.metric("Tracking Error", f"{te * 100:.2f}%" if pd.notna(te) else "N/A")
-        with k2:
+        with col2:
             st.metric("Information Ratio", f"{ir:.3f}" if pd.notna(ir) else "N/A")
-        with k3:
+        with col3:
             st.metric("Beta", f"{beta:.3f}" if pd.notna(beta) else "N/A")
-        with k4:
+        with col4:
             st.metric("Alpha", f"{alpha * 100:.2f}%" if pd.notna(alpha) else "N/A")
 
         if not rolling_tail_df.empty:
             st.plotly_chart(
                 plot_relative_tail_panel(rolling_tail_df),
                 use_container_width=True,
+                key="chart_relative_tail_panel",
             )
 
         st.plotly_chart(
             plot_regime_dashboard(regime_df),
             use_container_width=True,
+            key="chart_regime_dashboard",
         )
 
         if not rel_tail_df.empty:
@@ -694,6 +768,7 @@ def main():
         st.plotly_chart(
             plot_quantstats_snapshot(qs_snapshot),
             use_container_width=True,
+            key="chart_quantstats_snapshot",
         )
 
         st.markdown("### QuantStats Metrics")
@@ -704,9 +779,16 @@ def main():
             st.plotly_chart(
                 plot_benchmark_relative_frontier(relative_frontier_df),
                 use_container_width=True,
+                key="chart_quantstats_relative_frontier",
             )
 
-        if st.toggle("Render Full QuantStats HTML Tear Sheet", value=False):
+        render_html_qs = st.toggle(
+            "Render Full QuantStats HTML Tear Sheet",
+            value=False,
+            key="toggle_quantstats_html",
+        )
+
+        if render_html_qs:
             try:
                 qs_html = generate_quantstats_html_report(
                     returns=portfolio_returns,
@@ -716,12 +798,12 @@ def main():
                     title=f"{selected_universe_name} vs {state['benchmark_ticker']}",
                 )
                 components.html(qs_html, height=1200, scrolling=True)
-            except Exception as e:
-                st.warning(f"QuantStats HTML render failed: {e}")
+            except Exception as exc:
+                st.warning(f"QuantStats HTML rendering failed: {exc}")
 
     st.markdown("---")
     st.caption(
-        "This platform uses Yahoo Finance data and model-based analytics. Outputs are analytical in nature and do not constitute investment advice."
+        "This platform uses Yahoo Finance market data and model-based analytics. Outputs are analytical in nature and do not constitute investment advice."
     )
 
 
