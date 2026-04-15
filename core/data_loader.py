@@ -13,7 +13,7 @@ import yfinance as yf
 @dataclass
 class LoaderConfig:
     min_history_rows: int = 120
-    min_asset_coverage: float = 0.70
+    min_asset_coverage: float = 0.75
     max_forward_fill_days: int = 3
 
 
@@ -51,18 +51,20 @@ class DataLoader:
             raise ValueError("Yahoo Finance returned no data.")
 
         ohlcv_map = self._extract_ohlcv_map(raw, all_tickers)
-        price_df = self._extract_close_prices(ohlcv_map)
+        close_df = self._extract_close_prices(ohlcv_map)
 
-        requested_prices = price_df[[c for c in self.tickers if c in price_df.columns]].copy()
-        benchmark_prices = price_df[[c for c in [self.benchmark_ticker] if c in price_df.columns]].copy()
+        requested_prices = close_df[[c for c in self.tickers if c in close_df.columns]].copy()
+        benchmark_prices = close_df[[c for c in [self.benchmark_ticker] if c in close_df.columns]].copy()
 
         cleaned_prices = self._clean_price_matrix(requested_prices)
+
         if cleaned_prices.empty or cleaned_prices.shape[0] < self.loader_config.min_history_rows:
             raise ValueError("Insufficient aligned price history after cleaning.")
 
         valid_tickers = list(cleaned_prices.columns)
 
-        benchmark_prices = benchmark_prices.reindex(cleaned_prices.index).ffill(limit=self.loader_config.max_forward_fill_days)
+        benchmark_prices = benchmark_prices.reindex(cleaned_prices.index)
+        benchmark_prices = benchmark_prices.ffill(limit=self.loader_config.max_forward_fill_days)
         benchmark_prices = benchmark_prices.dropna(how="all")
 
         returns = self._price_to_returns(cleaned_prices)
@@ -73,11 +75,12 @@ class DataLoader:
         filtered_ohlcv = {}
         for t in valid_tickers:
             if t in ohlcv_map:
-                x = ohlcv_map[t].copy()
-                x = x[~x.index.duplicated(keep="last")]
-                x = x.sort_index()
-                x = x.loc[x.index.intersection(cleaned_prices.index)]
-                filtered_ohlcv[t] = x
+                df = ohlcv_map[t].copy()
+                df = df[~df.index.duplicated(keep="last")]
+                df = df.sort_index()
+                df = df.reindex(cleaned_prices.index).ffill(limit=self.loader_config.max_forward_fill_days)
+                df = df.dropna(how="all")
+                filtered_ohlcv[t] = df
 
         return {
             "prices": cleaned_prices,
@@ -96,15 +99,15 @@ class DataLoader:
             for t in tickers:
                 if t in raw.columns.get_level_values(0):
                     sub = raw[t].copy()
-                    cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in sub.columns]
-                    if len(cols) >= 4:
-                        sub = sub[cols].copy()
+                    keep_cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in sub.columns]
+                    if len(keep_cols) >= 4:
+                        sub = sub[keep_cols].copy()
                         sub = sub.dropna(how="all")
                         out[t] = sub
         else:
-            cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in raw.columns]
-            if cols and len(tickers) == 1:
-                out[tickers[0]] = raw[cols].copy()
+            keep_cols = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in raw.columns]
+            if keep_cols and len(tickers) == 1:
+                out[tickers[0]] = raw[keep_cols].copy()
 
         return out
 
@@ -114,8 +117,10 @@ class DataLoader:
             if "Close" in df.columns:
                 s = pd.to_numeric(df["Close"], errors="coerce").rename(t)
                 frames.append(s)
+
         if not frames:
             return pd.DataFrame()
+
         out = pd.concat(frames, axis=1)
         out = out.sort_index()
         out = out[~out.index.duplicated(keep="last")]
